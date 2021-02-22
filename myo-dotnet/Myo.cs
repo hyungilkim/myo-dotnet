@@ -24,6 +24,7 @@ namespace Thalmic.Myo
     {
         private readonly Hub _hub;
         private IntPtr _handle;
+        private bool streamEmg;
 
         internal Myo(Hub hub, IntPtr handle)
         {
@@ -50,10 +51,14 @@ namespace Thalmic.Myo
         public event EventHandler<GyroscopeDataEventArgs> GyroscopeData;
 
         public event EventHandler<RssiEventArgs> Rssi;
+        
+        public event EventHandler<EmgDataEventArgs> EmgData;
 
         public event EventHandler<MyoEventArgs> Unlocked;
 
         public event EventHandler<MyoEventArgs> Locked;
+        
+        public sbyte[] emgData = new sbyte[7];
 
         internal Hub Hub
         {
@@ -74,6 +79,12 @@ namespace Thalmic.Myo
         {
             libmyo.request_rssi(_handle, IntPtr.Zero);
         }
+        
+        public Result SetStreamEmg(StreamEmg type)
+        {
+            streamEmg = true;
+            return (Result) libmyo.set_stream_emg(_handle, (libmyo.StreamEmg)type, IntPtr.Zero);
+        }
 
         public void Unlock(UnlockType type)
         {
@@ -92,6 +103,7 @@ namespace Thalmic.Myo
 
         internal void HandleEvent(libmyo.EventType type, DateTime timestamp, IntPtr evt)
         {
+            bool outputEmgData = false;
             switch (type)
             {
                 case libmyo.EventType.Connected:
@@ -171,6 +183,12 @@ namespace Thalmic.Myo
                         Rssi(this, new RssiEventArgs(this, timestamp, rssi));
                     }
                     break;
+
+                case libmyo.EventType.Emg:
+                    outputEmgData = true;
+                    SetEmgData(evt, timestamp);
+                    break;
+
                 case libmyo.EventType.Unlocked:
                     if (Unlocked != null)
                     {
@@ -184,7 +202,35 @@ namespace Thalmic.Myo
                     }
                     break;
             }
+
+    		if (!outputEmgData && streamEmg) {
+    			SetEmgData(evt, timestamp);
+    		}
         }
+		
+		protected void SetEmgData(IntPtr evt, DateTime timestamp)
+		{
+			sbyte[] emg = {
+				libmyo.event_get_emg(evt, 0),
+				libmyo.event_get_emg(evt, 1),
+				libmyo.event_get_emg(evt, 2),
+				libmyo.event_get_emg(evt, 3),
+				libmyo.event_get_emg(evt, 4),
+				libmyo.event_get_emg(evt, 5),
+				libmyo.event_get_emg(evt, 6),
+				libmyo.event_get_emg(evt, 7)
+			};
+
+			emgData = emg;
+		}
+    }
+    
+    public enum Result
+    {
+        Success,
+        Error,
+        ErrorInvalidArgument,
+        ErrorRuntime
     }
 
     public enum Arm
@@ -206,6 +252,12 @@ namespace Thalmic.Myo
         Short,
         Medium,
         Long
+    }
+    
+    public enum StreamEmg
+    {
+        Disabled,
+        Enabled
     }
 
     public enum UnlockType

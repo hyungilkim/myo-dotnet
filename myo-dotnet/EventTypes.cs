@@ -99,4 +99,15 @@ namespace Thalmic.Myo
 
         public sbyte Rssi { get; private set; }
     }
+
+    public class EmgDataEventArgs : MyoEventArgs
+    {
+        public EmgDataEventArgs(Myo myo, DateTime timestamp, sbyte[] emg)
+            : base(myo, timestamp)
+        {
+            this.Emg = emg;
+        }
+
+        public sbyte[] Emg { get; private set; }
+    }
 }
